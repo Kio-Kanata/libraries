@@ -55,9 +55,8 @@ public:
   double pidParam[4][4];
   double pidParamAngle[4][4];
   double dt;
-  uint8_t pidInterval = 25;
   double gearRatio[4] = {1, 1, 1, 1};
-  double degErrorRange = 150;
+  double degErrorRange = 1.5;
   double targetRpm[4];
   double targetDeg[4];
   double rpm[4];
@@ -66,8 +65,6 @@ public:
   double deg[4];
   double rotate[4];
   double rad[4];
-  double current[4];
-  double target_current[4];
 
   motorControl(const uint8_t CS_, const uint32_t SPI_CLOCK_, SPIClass * SPI_);
   void setMode(MOTOR_NUM motorNum, MODE mode_);
@@ -99,7 +96,7 @@ public:
   uint8_t updateDriver();
   uint8_t updatePID();
   void update();
-private:
+//private:
   struct can_frame readMsg_;
   struct can_frame sendMsg_;
   MCP2515 mcp2515_;
@@ -108,8 +105,6 @@ private:
   C620 c620_[4] = { C620(), C620(), C620(), C620() };
   const uint16_t can_id = 0x200;
 
-  double _targetRpm[4];
-  double _targetDeg[4];
   double _rpm[4];
   double _rps[4];
   double _rad_s[4];

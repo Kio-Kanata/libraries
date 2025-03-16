@@ -39,9 +39,7 @@ void C620::setId(int id) {
 }
 
 int C620::connectBytes(uint8_t upper, uint8_t lower) {
-  union {int16_t signed_; uint16_t unsigned_;} val_;
-  val_.unsigned_ = (upper << 8) + lower;
-  return val_.signed_;
+  return (int) (upper << 8) + lower;
 }
 
 void C620::setCurrent(can_frame *frame, int motor_id, float current) {
@@ -60,12 +58,10 @@ void C620::setCurrent(can_frame *frame, int motor_id, float current) {
   }
 }
 
-void C620::divideBytes(int16_t val, uint8_t *data_array_ptr) {
+void C620::divideBytes(uint16_t val, uint8_t *data_array_ptr) {
   uint8_t *pointer = data_array_ptr;
-  union {int16_t signed_; uint16_t unsigned_;} val_;
-  val_.signed_ = val;
-  *pointer = 0xFF & (val_.unsigned_ >> 8);
-  *(pointer+1) = 0xFF & val_.unsigned_;
+  *pointer = 0xFF & (val >> 8);
+  *(pointer+1) = 0xFF & val;
 }
 
 float C620::angle(can_frame *frame) {
@@ -88,7 +84,7 @@ void C620::stopMotor() {
   mcp2515_->sendMessage(sendMsg_);
 }
 
-float C620::updatePID(int target_rpm) {
+void C620::updatePID(int target_rpm) {
   /*if((target_rpm > STOP_THRESHOLD)&&(rpm_ < STOP_THRESHOLD)) {
     motor_stopping_ = true;
   }
@@ -103,7 +99,6 @@ float C620::updatePID(int target_rpm) {
     float error = (float) target_rpm - rpm_;
     float new_current_ = pid_->calPID(error);
     setCurrent(sendMsg_, id_, new_current_);
-    return new_current_;
   //}
 }
 

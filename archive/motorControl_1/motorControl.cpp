@@ -126,10 +126,10 @@ void motorControl::updateMicros(uint32_t micros_) {
   dt = double(double(exeMicros - exeMicrosPre) / 1000000.0);
   for (uint8_t cnt = 0; cnt < 4; cnt++) {
     if ((mode[cnt] == SPEED) | (mode[cnt] == ANGLE)) {
-      calpid_[cnt].setDELTA_T(dt * pidInterval);
+      calpid_[cnt].setDELTA_T(dt * 5.0);
     }
     if (mode[cnt] == ANGLE) {
-      calpidAngle_[cnt].setDELTA_T(dt * pidInterval);
+      calpidAngle_[cnt].setDELTA_T(dt * 5.0);
     }
   }
   exeMicrosPre = exeMicros;
@@ -150,26 +150,11 @@ void motorControl::setGearRatio(double value) {
 }
 
 void motorControl::setTarget(MOTOR_NUM motorNum, UNIT unit, double value) {
-  if (unit == RPM && mode[motorNum] == SPEED) {
-    targetRpm[motorNum] = direction[motorNum] * value;
-    _targetRpm[motorNum] = targetRpm[motorNum] * gearRatio[motorNum];
-  }
-  else if (unit == RPS && mode[motorNum] == SPEED) {
-    targetRpm[motorNum] = direction[motorNum] * value * 60.0;
-    _targetRpm[motorNum] = targetRpm[motorNum] * gearRatio[motorNum];
-  }
-  else if (unit == RAD_S && mode[motorNum] == SPEED) {
-    targetRpm[motorNum] = direction[motorNum] * value * 30.0 / PI;
-    _targetRpm[motorNum] = targetRpm[motorNum] * gearRatio[motorNum];
-  }
-  else if (unit == DEG && mode[motorNum] == ANGLE) {
-    targetDeg[motorNum] = direction[motorNum] * value;
-    _targetDeg[motorNum] = targetDeg[motorNum] * gearRatio[motorNum];
-  }
-  else if (unit == RAD && mode[motorNum] == ANGLE) {
-    targetDeg[motorNum] = direction[motorNum] * value * 180.0 / PI;
-    _targetDeg[motorNum] = targetDeg[motorNum] * gearRatio[motorNum];
-  }
+  if (unit == RPM && mode[motorNum] == SPEED) targetRpm[motorNum] = direction[motorNum] * value * gearRatio[motorNum];
+  else if (unit == RPS && mode[motorNum] == SPEED) targetRpm[motorNum] = direction[motorNum] * value * gearRatio[motorNum] * 60.0;
+  else if (unit == RAD_S && mode[motorNum] == SPEED) targetRpm[motorNum] = direction[motorNum] * value * gearRatio[motorNum] * 30.0 / PI;
+  else if (unit == DEG && mode[motorNum] == ANGLE) targetDeg[motorNum] = direction[motorNum] * value * gearRatio[motorNum];
+  else if (unit == RAD && mode[motorNum] == ANGLE) targetDeg[motorNum] = direction[motorNum] * value * gearRatio[motorNum] * 180.0 / PI;
 }
 
 void motorControl::setTarget(motorControl::UNIT unit, double motor1, double motor2, double motor3, double motor4) {
@@ -208,7 +193,7 @@ void motorControl::init() {
     }
     if (mode[cnt] == ANGLE) {
       calpidAngle_[cnt].setParameter(pidParamAngle[KP][cnt], pidParamAngle[KI][cnt], pidParamAngle[KD][cnt]);
-      calpidAngle_[cnt].setDELTA_T(dt * pidInterval);
+      calpidAngle_[cnt].setDELTA_T(dt * 5.0);
       calpidAngle_[cnt].setMaxValue(pidParamAngle[MAX][cnt]);
     }
   }
@@ -225,13 +210,12 @@ void motorControl::read() {
     _rad_s[cnt] = c620_[cnt].readRad_s();
     _rotate[cnt] = _deg[cnt] / 360.0;
     _rad[cnt] = _deg[cnt] * PI / 180.0;
-    rpm[cnt] = _rpm[cnt] / gearRatio[cnt] * direction[cnt];
-    rps[cnt] = _rps[cnt] / gearRatio[cnt] * direction[cnt];
-    rad_s[cnt] = _rad_s[cnt] / gearRatio[cnt] * direction[cnt];
-    deg[cnt] = _deg[cnt] / gearRatio[cnt] * direction[cnt];
-    rotate[cnt] = _rotate[cnt] / gearRatio[cnt] * direction[cnt];
-    rad[cnt] = _rad[cnt] / gearRatio[cnt] * direction[cnt];
-    current[cnt] = (double)c620_[cnt].readCurrent();
+    rpm[cnt] = _rpm[cnt] / gearRatio[cnt];
+    rps[cnt] = _rps[cnt] / gearRatio[cnt];
+    rad_s[cnt] = _rad_s[cnt] / gearRatio[cnt];
+    deg[cnt] = _deg[cnt] / gearRatio[cnt];
+    rotate[cnt] = _rotate[cnt] / gearRatio[cnt];
+    rad[cnt] = _rad[cnt] / gearRatio[cnt];
   }
 }
 
@@ -239,19 +223,21 @@ uint8_t motorControl::updateDriver() {
   uint8_t status = mcp2515_.readMessage(&readMsg_);     
   read();                                                                                                                                                                                                                                                                                                                                                                                                                                                     
   if (status == MCP2515::ERROR_OK) {
-    uint8_t readId = readMsg_.can_id - 0x200;
-    c620_[readId - 1].setCANData(&readMsg_);
-    c620_[readId - 1].update();
+    uint8_t readId = readMsg_.can_id - 0x200 - 1;
+    c620_[readId].setCANData(&readMsg_);
+  }
+  for (uint8_t cnt = 0; cnt < 4; cnt++) {
+    c620_[cnt].update();
   }
   return status;
 }
 
 uint8_t motorControl::updatePID() {
-  if (mode[MOTOR1] == ANGLE) _targetRpm[MOTOR1] = calAnglePID(MOTOR1, _deg[MOTOR1]);
-  if (mode[MOTOR2] == ANGLE) _targetRpm[MOTOR2] = calAnglePID(MOTOR2, _deg[MOTOR2]);
-  if (mode[MOTOR3] == ANGLE) _targetRpm[MOTOR3] = calAnglePID(MOTOR3, _deg[MOTOR3]);
-  if (mode[MOTOR4] == ANGLE) _targetRpm[MOTOR4] = calAnglePID(MOTOR4, _deg[MOTOR4]);
-  for (uint8_t cnt = 0; cnt < 4; cnt++) target_current[cnt] = c620_[cnt].updatePID(int(_targetRpm[cnt]));
+  if (mode[MOTOR1] == ANGLE) targetRpm[MOTOR1] = calAnglePID(MOTOR1, _deg[MOTOR1]);
+  if (mode[MOTOR2] == ANGLE) targetRpm[MOTOR2] = calAnglePID(MOTOR2, _deg[MOTOR2]);
+  if (mode[MOTOR3] == ANGLE) targetRpm[MOTOR3] = calAnglePID(MOTOR3, _deg[MOTOR3]);
+  if (mode[MOTOR4] == ANGLE) targetRpm[MOTOR4] = calAnglePID(MOTOR4, _deg[MOTOR4]);
+  for (uint8_t cnt = 0; cnt < 4; cnt++) c620_[cnt].updatePID(int(targetRpm[cnt]));
   uint8_t status = mcp2515_.sendMessage(&sendMsg_);
   return status;
 }
@@ -259,7 +245,7 @@ uint8_t motorControl::updatePID() {
 void motorControl::update() {
   pidCnt++;
   updateDriver();
-  if (pidCnt >= pidInterval) {
+  if (pidCnt >= 5) {
     updatePID();
     pidCnt = 0;
   }
@@ -268,17 +254,22 @@ void motorControl::update() {
 void motorControl::calAngle(MOTOR_NUM motorNum) {
   degRaw[motorNum] = c620_[motorNum].readAngle();
   double degDiff = degRaw[motorNum] - degRawPre[motorNum];
-  if ((degDiff < 0) && (abs(degDiff) > degErrorRange)) {
-    rotateCnt[motorNum]++;
+  double errLim = abs(_rps[motorNum] * dt * 360.0 * degErrorRange);
+  if ((degDiff < 0) && (_rpm[motorNum] > 0)) {
+    if ((360 - abs(degDiff)) < errLim) {
+      rotateCnt[motorNum]++;
+    }
   }
-  if ((degDiff > 0) && (abs(degDiff) > degErrorRange)) {
-    rotateCnt[motorNum]--;
+  if ((degDiff > 0) && (_rpm[motorNum] < 0)) {
+    if ((360 - abs(degDiff)) < errLim) {
+      rotateCnt[motorNum]--;
+    }
   }
   _deg[motorNum] = degRaw[motorNum] + double(rotateCnt[motorNum] * 360);
   degRawPre[motorNum] = degRaw[motorNum];
 }
 
 double motorControl::calAnglePID(MOTOR_NUM motorNum, double deg_) {
-  double degErr = _targetDeg[motorNum] - deg_;
+  double degErr = targetDeg[motorNum] - deg_;
   return calpidAngle_[motorNum].calPID(degErr);
 }

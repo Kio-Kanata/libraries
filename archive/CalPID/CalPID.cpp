@@ -30,7 +30,7 @@ void CalPID::setDELTA_T(double delta_time)
 double CalPID::calPID(double devia_present)
 {
     double differential = (deviation_old - devia_present) / delta_t;
-    if ((value_PID != max_pid) && (value_PID != -max_pid))
+    if (value_PID != max_pid && value_PID != -max_pid)
     { //アンチワインドアップ（積分項固定式）
         integral += (devia_present + deviation_old) * delta_t / 2;
     }

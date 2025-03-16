@@ -13,8 +13,7 @@
 
 class C620
 {
-//private:
-public:
+private:
     MCP2515 *mcp2515_;
     CalPID *pid_;
     
@@ -28,7 +27,7 @@ public:
     bool motor_stopping_;
     int connectBytes(uint8_t upper, uint8_t lower);
     void setCurrent(can_frame *frame, int motor_id, float current);
-    void divideBytes(int16_t val, uint8_t *data_array_ptr);
+    void divideBytes(uint16_t val, uint8_t *data_array_ptr);
     float angle(can_frame *frame);
     int RPM(can_frame *frame);
     float current(can_frame *frame);
@@ -47,7 +46,7 @@ public:
     float readCurrent();
 
     //以下、どちらかのPID計算関数をCalPIDのインスタンス作成時に指定した周期で実行する
-    float updatePID(int target_rpm);
+    void updatePID(int target_rpm);
     void updatePID_rad(float target_rad_s);
     
     void transfer();
