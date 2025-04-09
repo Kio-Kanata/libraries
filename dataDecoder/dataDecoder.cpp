@@ -20,7 +20,7 @@ bool dataDecoder::decode() {
             regId(id);
             error = false;
         }
-        else if (((data[0] >> 6) & 0xFF) == 0b10) {
+        else if ((((data[0] >> 6) & 0xFF) == 0b10) && (length[id] != 0)) {
             read(id);
             divide(id);
             error = false;
@@ -71,19 +71,25 @@ bool dataDecoder::regId(uint8_t id_) {
     for (uint8_t cnt = 0; cnt < MAX_DATA_NUM; cnt++) {
         length[id_] += size[id_][cnt];
     }
-    if ((data[num] & 0x0F) != num) error = true;
+    if ((data[num] & 0x0F) != (num + 1)) error = true;
     return error;
 }
 
 bool dataDecoder::read(uint8_t id_) {
     bool error = false;
-    uint8_t num = 1;
-    for (uint16_t cnt = 0; cnt < length[id_]; cnt++) {
-        binaryData[id_][cnt] = ((data[num] >> (6 - (cnt % 7))) & 0b00000001);
-        if ((cnt % 7) == 6) num++;
+    uint16_t bitCnt = 0;
+    uint8_t byteIndex = 1;
+    while (bitCnt < length[id_]) {
+        for (int i = 6; i >= 0 && bitCnt < length[id_]; i--) {
+            binaryData[id_][bitCnt] = (data[byteIndex] >> i) & 0x01;
+            bitCnt++;
+        }
+        byteIndex++;
     }
-    if ((data[num] >> 7) != 0b1) num++;
-    if ((data[num] & 0x0F) != num) error = true;
+    if ((data[byteIndex] >> 7) != 0b1 || (data[byteIndex] & 0x0F) != byteIndex) {
+        error = true;
+    }
+
     return error;
 }
 
@@ -111,9 +117,9 @@ void dataDecoder::divide(uint8_t id_) {
 
 template <typename T>
 T dataDecoder::cast(uint8_t id_, uint8_t ord_) {
-    union {uint32_t data32_; T outputData;} data_;
-    data_.data32_ = data32[id_][ord_];
-    return data_.outputData;
+    T result;
+    memcpy(&result, &data32[id_][ord_], sizeof(T));
+    return result;
 }
 
 template bool dataDecoder::cast(uint8_t id_, uint8_t ord_);

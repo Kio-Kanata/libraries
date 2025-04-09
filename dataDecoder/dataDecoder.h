@@ -29,7 +29,7 @@ public:
   bool decode();
   template <typename T>
   T decodedData(uint8_t id_, uint8_t ord_);
-private:
+//private:
   enum TYPE {
     NONE = 0,
     BOOL = 1,
